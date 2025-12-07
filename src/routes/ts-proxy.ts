@@ -1,5 +1,6 @@
 import { setResponseHeaders } from 'h3';
 import { getCachedSegment } from './m3u8-proxy';
+import { isAllowedToMakeRequest } from '@/utils/turnstile';
 
 // Check if caching is disabled via environment variable
 const isCacheDisabled = () => process.env.DISABLE_CACHE === 'true';
@@ -12,6 +13,14 @@ export default defineEventHandler(async (event) => {
     return sendError(event, createError({
       statusCode: 404,
       statusMessage: 'TS proxying is disabled'
+    }));
+  }
+
+  // AUTH CHECK: Enforce Turnstile check
+  if (!(await isAllowedToMakeRequest(event))) {
+    return sendError(event, createError({
+      statusCode: 401,
+      statusMessage: 'Invalid or missing token'
     }));
   }
   
