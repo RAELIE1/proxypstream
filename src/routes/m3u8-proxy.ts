@@ -1,4 +1,5 @@
 import { setResponseHeaders } from 'h3';
+import { isAllowedToMakeRequest } from '@/utils/turnstile';
 
 // Check if caching is disabled via environment variable
 const isCacheDisabled = () => process.env.DISABLE_CACHE === 'true';
@@ -8,7 +9,7 @@ function parseURL(req_url: string, baseUrl?: string) {
     return new URL(req_url, baseUrl).href;
   }
   
-  const match = req_url.match(/^(?:(https?:)?\/\/)?(([^\/?]+?)(?::(\d{0,5})(?=[\/?]|$))?)([\/?][\S\s]*|$)/i);
+  const match = req_url.match(/^(?:(https?:)?\/\/)?(([^/?]+?)(?::(\d{0,5})(?=[/?]|$))?)([/][\S\s]*|$)/i);
   
   if (!match) {
     return null;
@@ -368,6 +369,14 @@ export default defineEventHandler(async (event) => {
     return sendError(event, createError({
       statusCode: 404,
       statusMessage: 'M3U8 proxying is disabled'
+    }));
+  }
+
+  // AUTH CHECK: Enforce Turnstile check
+  if (!(await isAllowedToMakeRequest(event))) {
+    return sendError(event, createError({
+      statusCode: 401,
+      statusMessage: 'Invalid or missing token'
     }));
   }
   
